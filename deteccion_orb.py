@@ -4,68 +4,53 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 def lecturaImg():
+    kpYdes_ = dict()
     os.chdir('train')
     for img in os.listdir('.'):
         imgRead = cv2.imread(img, 0)
-        lecturaCanny = canny(imgRead)
-        lecturaHarris = cornnerHarris(imgRead)
+        #lecturaCanny = canny(imgRead)
+        #lecturaHarris = cornnerHarris(imgRead)
         #puntosInteres(lecturaCanny, imgRead)
 
-        orb_ = orb(imgRead)
+        kp_, des_ = orb(imgRead)
+        #kpYdes_.setdefault(kp_, des_)
 
 
 def orb(img):
     # Initiate ORB detector
-    orb = cv2.ORB_create()
+    orb = cv2.ORB_create(100, nlevels=4, firstLevel=0, scaleFactor=1.3)
     # find the keypoints with ORB
-    kp = orb.detect(img, None)
+    kp = orb.detect(img)
     # compute the descriptors with ORB
     kp, des = orb.compute(img, kp)
     # draw only keypoints location,not size and orientation
-    img2 = cv2.drawKeypoints(img, kp, None, color=(0, 255, 0), flags=0)
+    img2 = cv2.drawKeypoints(img, kp, None, color=(0, 255, 0), flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
     plt.imshow(img2), plt.show()
 
-def puntosInteres(img1, img2):
-    detector = cv2.ORB_create()  # cambiar por otro como ORB (esquinas)
+    # Para ello creamos un FlannBasedMatcher utilizando la distancia de Hamming
+    FLANN_INDEX_LSH = 6
+    index_params = dict(algorithm=FLANN_INDEX_LSH, table_number=6, key_size=3, multi_probe_level=1)
+    search_params = dict(checks=-1)  # Maximum leafs to visit when searching for neighbours.
+    flann = cv2.FlannBasedMatcher(index_params, search_params)
 
-    # find the keypoints and descriptors
-    kp1, des1 = detector.detectAndCompute(img1, None)
-    kp2, des2 = detector.detectAndCompute(img2, None)
+    des = np.uint8(des)
+    # Luego almacenamos los descriptores. Esto se podría hacer según se calculan los descriptores
+    for d in des:
+        flann.add([d])
 
-    # BFMatcher with default params
-    bf = cv2.BFMatcher()
-    matches = bf.knnMatch(des1, des2, k=2)
+    #utilizamos el BFMatcher para fuerza bruta y disminuir los descriptores
+    bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
 
-    # Apply ratio test
-    good = [[m] for m, n in matches if m.distance < 0.75 * n.distance]
-    img3 = cv2.drawMatchesKnn(img1, kp1, img2, kp2, good, None, flags=2)
-    plt.imshow(img3), plt.show()
+    # Ya podríamos, por ejemplo, buscar los k descriptores más parecidos al [[8,8,8]]
+    results = flann.knnMatch(des, k=3)
 
-def canny(img):
-    filtered_image = cv2.Canny(img, 100, 200)
-    plt.imshow(filtered_image, cmap="gray")
-    plt.show()
+    # Podemos mostrar el resultado obtenido por pantalla mediante:
+    for r in results:
+        for m in r:
+            print("Res - dist:", m.distance ," img: ", m.imgIdx, " queryIdx: ", m.queryIdx, " trainIdx:", m.trainIdx)
 
-    return filtered_image
+    return kp, des
 
-def cornnerHarris(img):
-    blockSize = 3  # Tamaño de la ventana
-    ksize = 3 # Tamaño del kernel de Sobel
-    k = 0.05  # Factor de harris
-
-    cornerness = cv2.cornerHarris(img,blockSize,ksize,k) #hace lo mismo que esta funcion
-
-    threshold = 0.05
-    indices = cornerness > threshold * cornerness.max()
-    plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-    coords = [(j, i) for i in range(0, indices.shape[0]) for j in range(0, indices.shape[1]) if indices[i, j]]
-    x = [j for j, i in coords]
-    y = [i for j, i in coords]
-
-    plt.plot(x, y, 'o')
-    plt.show()
-
-    return coords
 
 def main():
     lecturaImg()
