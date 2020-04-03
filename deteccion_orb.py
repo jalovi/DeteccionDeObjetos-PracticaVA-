@@ -4,28 +4,29 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 def lecturaImg():
-    kpYdes_ = dict()
+    kps_ = []
+    dess_ = []
+
     os.chdir('train')
     for img in os.listdir('.'):
         imgRead = cv2.imread(img, 0)
-        #lecturaCanny = canny(imgRead)
-        #lecturaHarris = cornnerHarris(imgRead)
-        #puntosInteres(lecturaCanny, imgRead)
 
-        kp_, des_ = orb(imgRead)
-        #kpYdes_.setdefault(kp_, des_)
+        flann_= orb(imgRead,kps_, dess_)
 
 
-def orb(img):
-    # Initiate ORB detector
+
+
+
+def orb(img,kps_,dess_):
+    # inicializamos ORB
     orb = cv2.ORB_create(100, nlevels=4, firstLevel=0, scaleFactor=1.3)
-    # find the keypoints with ORB
+    # encontramos los keypoints con ORB
     kp = orb.detect(img)
-    # compute the descriptors with ORB
+    # sacamos los descriptores y los key point de la imagen y los guardamos en la lista
     kp, des = orb.compute(img, kp)
-    # draw only keypoints location,not size and orientation
-    img2 = cv2.drawKeypoints(img, kp, None, color=(0, 255, 0), flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-    plt.imshow(img2), plt.show()
+
+    #recorremos los key point con sus atributos y los guardamos en el array con los descriptores(tupla)
+    kps_ = kps(kp,des,kps_,img)
 
     # Para ello creamos un FlannBasedMatcher utilizando la distancia de Hamming
     FLANN_INDEX_LSH = 6
@@ -33,24 +34,28 @@ def orb(img):
     search_params = dict(checks=-1)  # Maximum leafs to visit when searching for neighbours.
     flann = cv2.FlannBasedMatcher(index_params, search_params)
 
-    des = np.uint8(des)
-    # Luego almacenamos los descriptores. Esto se podría hacer según se calculan los descriptores
-    for d in des:
-        flann.add([d])
+    # Luego almacenamos los descriptores.
+    for i, d in enumerate(kps_):
+        matches = flann.knnMatch(d[i], k=2)
 
-    #utilizamos el BFMatcher para fuerza bruta y disminuir los descriptores
-    bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
-
-    # Ya podríamos, por ejemplo, buscar los k descriptores más parecidos al [[8,8,8]]
-    results = flann.knnMatch(des, k=3)
-
-    # Podemos mostrar el resultado obtenido por pantalla mediante:
-    for r in results:
-        for m in r:
-            print("Res - dist:", m.distance ," img: ", m.imgIdx, " queryIdx: ", m.queryIdx, " trainIdx:", m.trainIdx)
 
     return kp, des
 
+def kps(kp,des,kps_, img):
+    # recorremos los key point con sus atributos y los guardamos en el array
+    i = 0
+    for key in kp:
+        x = key.pt[0]
+        y = key.pt[1]
+        k = (x, y, key.pt, key.size, key.angle, key.response, key.octave, key.class_id, np.array(des[i]))
+        i += 1
+        kps_.append(k)
+
+    # dibujamos los keypoint en la imagen
+    img2 = cv2.drawKeypoints(img, kp, None, color=(0, 255, 0), flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+    plt.imshow(img2), plt.show()
+
+    return kps_
 
 def main():
     lecturaImg()
