@@ -45,9 +45,15 @@ def kps(kp,des,kps_, img):
     # recorremos los key point con sus atributos y los guardamos en el array
     i = 0
     for key in kp:
+        vectorX=225-key.pt[0]
+        vectorY=110-key.pt[1]
+        vector = [vectorX,vectorY]
+        anguloVec= np.arctan(vectorX / vectorY)
+        modulo= np.math.sqrt(pow(vectorX, 2) + pow(vectorY, 2))
+        vectorPolar=[modulo,anguloVec]
         x = key.pt[0]
         y = key.pt[1]
-        k = (x, y, key.pt, key.size, key.angle, key.response, key.octave, key.class_id, np.array(des[i]))
+        k = (x, y,vectorPolar, key.size, key.angle, key.response, key.octave, key.class_id, np.array(des[i]))
         i += 1
         kps_.append(k)
 
@@ -63,4 +69,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
