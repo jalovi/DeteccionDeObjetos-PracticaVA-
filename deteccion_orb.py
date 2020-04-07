@@ -81,18 +81,21 @@ def orb(img,kps_,dess_):
 def kps(kp,des,kps_, img):
     # recorremos los key point con sus atributos y los guardamos en el array
     for i, key in enumerate(kp):
-        vectorX=225-key.pt[0]
-        vectorY=110-key.pt[1]
-        vector = [vectorX,vectorY]
+        x, y = key.pt
+        centroX = img.shape[0] / 2
+        centroY = img.shape[1] / 2
+        vectorX = centroX - x
+        vectorY = centroY - y
+        vector = [vectorX, vectorY]
         if vectorY==0:
             anguloVec = 0
         else:
-            anguloVec= np.arctan(vectorX / vectorY)
-        modulo= np.math.sqrt(pow(vectorX, 2) + pow(vectorY, 2))
+            anguloVec= np.arctan((centroX - vectorX) / (centroY - vectorY))
+
+        modulo = np.sqrt(np.power((centroX - vectorX), 2) + np.power((centroY - vectorY), 2))
         vectorPolar=[modulo,anguloVec]
-        x, y = key.pt
-        centroImagen = calcularCentro(x, y, img)
-        k = (x, y, vectorPolar, key.size, key.angle, key.response, key.octave, key.class_id, centroImagen, des[i])
+
+        k = (x, y, vectorPolar, key.size, key.angle, key.response, key.octave, key.class_id, des[i])
 
         kps_.append(k)
 
@@ -101,25 +104,6 @@ def kps(kp,des,kps_, img):
     plt.imshow(img2), plt.show()
 
     return kps_
-
-def calcularCentro(kpX, kpY, img):
-    altura, anchura = img.shape
-    centroX = anchura/2
-    centroY = altura/2
-    centroImg = (centroX, centroY)
-
-    vectorX = centroX - kpX
-    vectorY = centroY - kpY
-    vector = (vectorX, vectorY)
-
-    modulo = np.sqrt(np.power((centroX - kpX), 2) + np.power((centroY - kpY), 2))
-
-    if (centroY - kpY) == 0:
-        angulo = 0
-    else:
-        angulo = np.arctan((centroX - kpX) / (centroY - kpY))
-
-    return (modulo, vector, angulo, centroImg)
 
 
 def vectors(kp0,kpI):
