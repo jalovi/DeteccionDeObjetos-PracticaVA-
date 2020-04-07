@@ -92,7 +92,7 @@ def kps(kp,des,kps_, img):
         vectorPolar=[modulo,anguloVec]
         x, y = key.pt
         centroImagen = calcularCentro(x, y, img)
-        k = (x, y, vectorPolar, key.size, key.angle, key.response, key.octave, key.class_id, des[i])
+        k = (x, y, vectorPolar, key.size, key.angle, key.response, key.octave, key.class_id, centroImagen, des[i])
 
         kps_.append(k)
 
@@ -101,6 +101,25 @@ def kps(kp,des,kps_, img):
     plt.imshow(img2), plt.show()
 
     return kps_
+
+def calcularCentro(kpX, kpY, img):
+    altura, anchura = img.shape
+    centroX = anchura/2
+    centroY = altura/2
+    centroImg = (centroX, centroY)
+
+    vectorX = centroX - kpX
+    vectorY = centroY - kpY
+    vector = (vectorX, vectorY)
+
+    modulo = np.sqrt(np.power((centroX - kpX), 2) + np.power((centroY - kpY), 2))
+
+    if (centroY - kpY) == 0:
+        angulo = 0
+    else:
+        angulo = np.arctan((centroX - kpX) / (centroY - kpY))
+
+    return (modulo, vector, angulo, centroImg)
 
 
 def vectors(kp0,kpI):
