@@ -18,7 +18,7 @@ def lecturaImg():
     search_params = dict(checks=-1)  # Maximum leafs to visit when searching for neighbours.
     flann = cv2.FlannBasedMatcher(index_params, search_params)
 
-    os.chdir('train2')
+    os.chdir('train')
     for img in os.listdir('.'):
         i = img.split('.')
         if(i[1] == 'jpg'):
@@ -29,7 +29,8 @@ def lecturaImg():
             flann.add([np.uint8(des_)])
 
     #prueba para comparar y hacer el vector de votacion
-    os.chdir('../train2')
+    os.chdir('..')
+    os.chdir('test')
     print(os.getcwd())
     for img in os.listdir('.'):
         i = img.split('.')
@@ -66,11 +67,13 @@ def kps(kp,des,kps_, img):
         vectorX = centroX - x
         vectorY = centroY - y
         vector = [vectorX, vectorY]
+        print(centroY - vectorY)
+        print(centroX - vectorX)
         if vectorY==0:
             anguloVec = 0
         else:
-            anguloVec= np.arctan((centroX - vectorX) / (centroY - vectorY))
-
+            anguloVec= np.arctan((centroY - vectorY) / (centroX - vectorX))
+        print(anguloVec)
         modulo = np.sqrt(np.power((centroX - vectorX), 2) + np.power((centroY - vectorY), 2))
         vectorPolar=[modulo,anguloVec]
 
@@ -94,12 +97,18 @@ def tablaVotacion(tabla, kpsTrain, kpsTest, desTest, flann, img, imgOrigin):
             #k = (x, y, vector, vectorPolar, key.size, key.angle, key.response, key.octave, key.class_id, des[i])
             kpTestSize =kpsTest[i.queryIdx][4]
             kpTrainSize = kpsTrain[i.trainIdx][4]
+            kpTestAngle = kpsTest[i.queryIdx][5]
             kpTrainDistance = kpsTrain[i.trainIdx][3][0]#modulo
+            kpTrainVectorAngle = kpsTrain[i.trainIdx][3][1]
+            kpTrainAngle = kpsTrain[i.trainIdx][5]
             kpTestDistance = kpsTest[i.queryIdx][3][0]
             scala = kpTestSize / kpTrainSize
 
-            vectorX = (kpTestSize * kpTrainDistance * np.cos(kpTrainDistance + kpTestDistance) - kpTrainDistance) / kpTrainSize
-            vectorY = (kpTestSize * kpTrainDistance * np.sin(kpTrainDistance + kpTestDistance) - kpTrainDistance) / kpTrainSize
+            angulo = kpTrainVectorAngle + kpTrainAngle - kpTestAngle
+            modulo = (kpTestSize * kpTrainDistance) / kpTrainSize
+            vectorX = modulo * np.cos(angulo)
+            vectorY = modulo * np.sin(angulo)
+
 
             kpx = int(np.divide(kpsTest[i.queryIdx][0] + vectorX, 1))
             kpy = int(np.divide(kpsTest[i.queryIdx][1] + vectorY, 1))
@@ -108,10 +117,11 @@ def tablaVotacion(tabla, kpsTrain, kpsTest, desTest, flann, img, imgOrigin):
                 tabla[kpy, kpx] += 1
 
     #reagrupamos tabla
-    tabla = cv2.resize(tabla, None, fx=1, fy=1, interpolation=cv2.INTER_NEAREST)
+    tabla = cv2.resize(tabla, None, fx=10, fy=10, interpolation=cv2.INTER_NEAREST)
     max_index = np.unravel_index(tabla.argmax(), tabla.shape)
     position = (max_index[0], max_index[1])
-    cv2.circle(img, position, np.uint8(img.shape[0] / 33), (0, 0, 255), thickness=2)
+    print(position)
+    cv2.circle(img, position, np.uint8(img.shape[0] / 20), (0, 0, 255), thickness=2)
     nombre = imgOrigin.split('.')
     cv2.imshow(nombre[0], img)
     cv2.waitKey(0)
@@ -123,7 +133,6 @@ def tablaVotacion(tabla, kpsTrain, kpsTest, desTest, flann, img, imgOrigin):
     puntoX=modulo*np.cos(angulo)
     puntoY=modulo*np.sin(angulo)
     puntoVotacion=[kpI[0]+puntoX,kpI[1]+puntoY]
-
     return puntoVotacion'''
 
 
