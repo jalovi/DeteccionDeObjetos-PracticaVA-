@@ -72,7 +72,7 @@ def kps(kp,des,kps_, img):
         if vectorY==0:
             anguloVec = 0
         else:
-            anguloVec= np.arctan((centroY - vectorY) / (centroX - vectorX))
+            anguloVec= np.arctan((vectorY) / (vectorX))
         print(anguloVec)
         modulo = np.sqrt(np.power((centroX - vectorX), 2) + np.power((centroY - vectorY), 2))
         vectorPolar=[modulo,anguloVec]
