@@ -3,9 +3,11 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
+from random import random
+from colorsys import hsv_to_rgb
 
-def ImgTest():
-    kpsTrain_ = []
+
+def ImgTest(kpsTrain_):
 
     # Para ello creamos un FlannBasedMatcher utilizando la distancia de Hamming
     FLANN_INDEX_LSH = 6
@@ -37,9 +39,8 @@ def imgTrain(kpsTrain_, flann):
             imgReadTest = cv2.imread(img, 0)
 
             kps_, des_ = orb(imgReadTest)
-
-            tabla = np.zeros((int(imgReadTest.shape[0] / 10), int(imgReadTest.shape[1] / 10)), dtype=np.uint8)
-            knnSearch(tabla, kpsTrain_, kps_, des_, flann, imgReadTest, img)
+            #(kpsTrain, kpsTest, desTest, flann, img):
+            knnSearch(kpsTrain_, kps_, des_, flann, imgReadTest)
 
 
 def orb(img):
@@ -48,6 +49,7 @@ def orb(img):
     # encontramos los keypoints con ORB
     kp = orb.detect(img)
     # sacamos los descriptores y los key point de la imagen y los guardamos en la lista
+
     kp, des = orb.compute(img, kp)
 
     return kp, des
@@ -81,7 +83,8 @@ def kps(kp,des, img):
     return kps_
 
 
-def knnSearch(tabla, kpsTrain, kpsTest, desTest, flann, img, imgOrigin):
+def knnSearch(kpsTrain, kpsTest, desTest, flann, img):
+    tabla = np.zeros((int(img.shape[0] / 10), int(img.shape[1] / 10)), dtype=np.uint8)
     matches = flann.knnMatch(desTest, k=5)
 
     points = []
@@ -108,8 +111,8 @@ def knnSearch(tabla, kpsTrain, kpsTest, desTest, flann, img, imgOrigin):
 
         anguloX = np.cos(angulo)
         anguloY = np.sin(angulo)
-        vectorX = (anguloX * modulo)
-        vectorY = (anguloY * modulo)
+        vectorX = abs(anguloX * modulo)
+        vectorY = abs(anguloY * modulo)
 
         kpx = int((pointsKpTest[i].pt[0] + vectorX)/10)
         kpy = int((pointsKpTest[i].pt[1] + vectorY)/10)
@@ -120,12 +123,15 @@ def knnSearch(tabla, kpsTrain, kpsTest, desTest, flann, img, imgOrigin):
     #reagrupamos tabla
     tabla = cv2.resize(tabla, None, fx=10, fy=10, interpolation=cv2.INTER_NEAREST)
     max_index = np.unravel_index(tabla.argmax(), tabla.shape)
-    #position = (max_index[0], max_index[1])
+    position = (max_index[0], max_index[1])
     cv2.circle(img, (max_index[1], max_index[0]), 50, (0, 255, 255), thickness=2)
-    nombre = imgOrigin.split('.')
+    #nombre = imgOrigin.split('.')
     #saveImg(img, imgOrigin)
-    cv2.imshow(nombre[0], img)
-    cv2.waitKey(0)
+    cv2.imshow('car', img)
+    key = cv2.waitKey()
+    # la ventana del imagen se cierra hasta que llega un ESC
+    if key == 27:
+        cv2.destroyAllWindows()
 
 def acomularKey(point,vector_votacion):
     lista_aco=[]
@@ -148,15 +154,10 @@ def saveImg(img, nombre):
     cv2.imwrite(nombre, img)
     os.chdir(rute)
 
-
-
 def main():
-    ksTrain, flann = ImgTest()
+    kpsTrain_ = []
+    ksTrain, flann = ImgTest(kpsTrain_)
     imgTrain(ksTrain, flann)
-
-    cv2.destroyAllWindows()
-
-
 
 if __name__ == "__main__":
     main()
