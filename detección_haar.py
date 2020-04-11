@@ -14,9 +14,9 @@ def lecturaImg(path_name):
 
 
 def detectImage(imgRead):
-    # iniciamos el clasificador de coche con los coches.xml
-    car_cascade=cv2.CascadeClassifier('coches.xml')
-    mat_cascade=cv2.CascadeClassifier('matriculas.xml')
+    # iniciamos el clasificador de coche y de la matricula
+    car_cascade=cv2.CascadeClassifier('haar/coches.xml')
+    mat_cascade=cv2.CascadeClassifier('haar/matriculas.xml')
     gray=cv2.cvtColor(imgRead,cv2.COLOR_BGR2GRAY)
     #Lanzar el detector coche
     #car=car_cascade.detectMultiScale(gray,1.1,7,cv2.CASCADE_SCALE_IMAGE,(30,80))
