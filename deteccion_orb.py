@@ -2,9 +2,11 @@ import os
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+
 def lecturaImg(path_name):
     vector_votacion=[]
     flann=createBase(vector_votacion)
+    #recorreos las imagenes de test
     for img in os.listdir(path_name):
         #Leer todas las imagenes de la carpeta test
         imgRead = cv2.imread(path_name+"/"+img,0)
@@ -16,6 +18,7 @@ def lecturaImg(path_name):
             cv2.destroyAllWindows()
 
 def tabla_votacion(imgread,goodKeyTrain,goodKey):
+    #hay que dividirla entre 10 para cuando finalicemos podamos tener los puntos agrupados de 10x10
     tamy=int((imgread.shape[0])/10)
     tamx=int((imgread.shape[1])/10)
     tabla = np.zeros((tamy,tamx))
@@ -31,37 +34,53 @@ def tabla_votacion(imgread,goodKeyTrain,goodKey):
         y0=angY*modulo
         ejex=int((goodKey[index].pt[0]+x0)/10)
         ejey=int((goodKey[index].pt[1]+y0)/10)
+        #para mayor datos, utilizamos tambien los puntos restados por x0 e y0 aunque no seria necesario
         ejex2=int((goodKey[index].pt[0]-x0)/10)
         ejey2=int((goodKey[index].pt[1]-y0)/10)
         if (ejex > 0 and ejey > 0) and (ejex < tamx and ejey < tamy):
             tabla[ejey, ejex] += 1
         if (ejex2 > 0 and ejey2 > 0) and (ejex2 < tamx and ejey2 < tamy):
             tabla[ejey2, ejex2] += 1
-    m=np.where(tabla==np.max(tabla))
-    return m
+    #recuperamos los datos maximos de la tabla
+    #m=np.where(tabla==np.max(tabla))
+    #esta forma es mas rapida y podemos refactorizar la tabla por 10
+    tabla = cv2.resize(tabla, None, fx=10, fy=10, interpolation=cv2.INTER_NEAREST)
+    #np.unravel_index nos elige los puntos con un valor max
+    max_index = np.unravel_index(tabla.argmax(), tabla.shape)
+    position = (max_index[0], max_index[1])
+
+    return position
 
 def detectImage(imgRead,flann,vector_votacion):
     orb = cv2.ORB_create(100, nlevels=4, firstLevel=0, scaleFactor=1.3)
     kp,des=orb.detectAndCompute(imgRead,None)
     matches = flann.knnMatch(des, k=5)
+    #realizamos el doble bucle para poder sacar todos los matches
     good = []
     for matches in matches:
         for i in matches:
             good.append(i)
-    goodKeyTrain=acomularKey(good,vector_votacion)
+    #realizamos acumularKey para guardar en una lista cada keypoint vinculado a su keypoint
+    goodKeyTrain=acumularKey(good,vector_votacion)
+    #recogemos todos los keypoint del test
     goodKey=getKey(good,kp)
     index=tabla_votacion(imgRead,goodKeyTrain,goodKey)
-    ejex=index[1]
+    #recogemos un array con los puntos empatados
+    cv2.circle(imgRead, (index[1], index[0]), 50, (0, 255, 255), thickness=2)
+    #si lo hicieramos con el where
+    '''ejex=index[1]
     ejey=index[0]
     for i in range(len(ejex)):
         x=ejex[i]*10
         y=ejey[i]*10
-        cv2.circle(imgRead,(x,y),50,(0,255,0),2)
+        cv2.circle(imgRead,(x,y),50,(0,255,0),2)'''
 
 
-def acomularKey(good,vector_votacion):
+def acumularKey(good,vector_votacion):
     lista_aco=[]
     for data in good:
+        #DMatch.queryIdx – Índice del descriptor en descriptores de consulta
+        #DMatch.trainIdx – Índice del descriptor en descriptores de entrenamiento
         lista_aco.append(vector_votacion[data.imgIdx][data.trainIdx])
     return lista_aco
 
@@ -72,10 +91,13 @@ def getKey(good,key):
     return lista_aco
 
 def createBase(vector_votacion):
+    #recogido de los ejercicios de clase
     FLANN_INDEX_LSH = 6
     index_params = dict(algorithm=FLANN_INDEX_LSH, table_number=6, key_size=3, multi_probe_level=1)
-    search_params = dict(checks=-1)  # Maximum leafs to visit when searching for neighbours.
+    search_params = dict(checks=-1)
+    
     flann = cv2.FlannBasedMatcher(index_params, search_params)
+    #este tipo de for es para que podamos recorrer todos los documentos que tengamos en la carpeta train
     for img in os.listdir("train"):
         imgRead = cv2.imread("train/"+img, 0)
         orb = cv2.ORB_create(100, nlevels=4, firstLevel=0, scaleFactor=1.3)
@@ -103,14 +125,12 @@ def kps(kp,img):
         modulo = np.sqrt(np.power((centroX - x), 2) + np.power((centroY - y), 2))
         vectorPolar=[modulo,anguloVec]
 
-        k = (key.class_id,vectorPolar,vector,key.pt,key.size, key.angle, key.response, key.octave)
+        k =(key.class_id,vectorPolar,vector,key.pt,key.size, key.angle, key.response, key.octave)
         kps.append(k)
     return kps
+
 def main():
     lecturaImg("test")
-
-
-
 
 if __name__ == "__main__":
     main()

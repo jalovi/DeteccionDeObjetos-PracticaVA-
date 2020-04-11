@@ -1,17 +1,19 @@
 import os
 import cv2
-import detección_haar
+import deteccion_haar
 import deteccion_orb
 
 def lecturaVideo(path_name):
+    #recogemos el video en la variable
     cap=cv2.VideoCapture(path_name)
     while True:
+        #comprobamos si da error o no
         if cap.grab():
             flag,frame=cap.retrieve()
             if not flag:
                 break
             else:
-                detección_haar.detectImage(frame)
+                deteccion_haar.detectImage(frame)
                 cv2.imshow("CarVid",frame)
                 key = cv2.waitKey()
                 #la ventana del imagen se cierra hasta que llega un ESC
