@@ -19,6 +19,7 @@ def tabla_votacion(imgread,goodKeyTrain,goodKey):
     tamy=int((imgread.shape[0])/10)
     tamx=int((imgread.shape[1])/10)
     tabla = np.zeros((tamy,tamx))
+    #k =(key.class_id,vectorPolar,vector,key.pt,key.size, key.angle, key.response, key.octave)
     for index in range(len(goodKey)):
         scale=goodKeyTrain[index][4]/goodKey[index].size
         modulo,angulo=goodKeyTrain[index][1]
