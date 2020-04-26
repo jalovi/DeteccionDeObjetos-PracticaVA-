@@ -43,14 +43,17 @@ def detectImage(imgRead):
                 lista=detectorCaracter(contours)
                 for i in range(0,len(lista)):
                     Dx, Dy, Dw, Dh = cv2.boundingRect(lista[i])
-                    cv2.rectangle(mat_color, (Dx,Dy), (Dx+Dw,Dy+Dh), (0,255,0), 1)
+                    cv2.rectangle(mat_color, (Dx,Dy), (Dx+Dw,Dy+Dh), (0,255,0), 2)
 
 def detectorCaracter(contours):
     lista=[]
     for i in range(0,len(contours)):
-        Dx, Dy, Dw, Dh = cv2.boundingRect(contours[i])
-        if Dh/Dw < 2:
-            lista.append(contours[i])
+        area=cv2.contourArea(contours[i])
+        if area>50:
+            Dx, Dy, Dw, Dh = cv2.boundingRect(contours[i])
+            aspect=Dh/Dw
+            if aspect > 0 and aspect<5.5 and Dy!=0:
+                lista.append(contours[i])
     return lista
 def CargarTraining():
     path_name="training_ocr"
