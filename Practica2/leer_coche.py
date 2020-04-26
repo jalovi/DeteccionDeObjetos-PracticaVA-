@@ -32,12 +32,12 @@ def detectImage(imgRead):
             car_gray = gray[y:y+h,x:x+w]
             car_color = imgRead[y:y+h,x:x+w]
             #Lanzar el detector de las matriculas
-            mat=mat_cascade.detectMultiScale(car_gray)
+            mat=mat_cascade.detectMultiScale(gray)
             for Mx,My,Mw,Mh in mat:
                 #Dibujar la posición las matriculas
-                cv2.rectangle(car_color,(Mx,My),(Mx+Mw,My+Mh),(255,0,0),2)
-                mat_gray=car_gray[My:My+Mh,Mx:Mx+Mw]
-                mat_color = car_color[My:My+Mh,Mx:Mx+Mw]
+                cv2.rectangle(imgRead,(Mx,My),(Mx+Mw,My+Mh),(255,0,0),2)
+                mat_gray=gray[My:My+Mh,Mx:Mx+Mw]
+                mat_color = imgRead[My:My+Mh,Mx:Mx+Mw]
                 binary = cv2.adaptiveThreshold(mat_gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,cv2.THRESH_BINARY,11,2)
                 contours, hierarchy = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
                 lista=detectorCaracter(contours)
