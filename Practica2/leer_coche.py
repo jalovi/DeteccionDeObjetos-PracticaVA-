@@ -1,6 +1,6 @@
 import os
 import cv2
-
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 def lecturaImg(path_name):
     for img in os.listdir(path_name):
         #Leer todas las imagenes de la carpeta test
@@ -28,9 +28,6 @@ def detectImage(imgRead):
         for x,y,w,h in car:
             #Dibujar la posición del coche
             cv2.rectangle(imgRead,(x,y),(x+w,y+h),(0,0,255),2)
-            #La posición de la matricula la busca por la posicion del coche
-            car_gray = gray[y:y+h,x:x+w]
-            car_color = imgRead[y:y+h,x:x+w]
             #Lanzar el detector de las matriculas
             mat=mat_cascade.detectMultiScale(gray)
             for Mx,My,Mw,Mh in mat:
@@ -55,22 +52,56 @@ def detectorCaracter(contours):
             if aspect > 0 and aspect<5.5 and Dy!=0:
                 lista.append(contours[i])
     return lista
+
 def CargarTraining():
     path_name="training_ocr"
+    EtiquetasE=[]
+    matrizC=[]
     for img in os.listdir(path_name):
         #Leer todas las imagenes de la carpeta trainning
         i = img.split('.')
         if(i[1] == 'jpg'):
+            caracter=i[0].split('_')
+            EtiquetasE.append(caracter[0])
             imgRead = cv2.imread(path_name+"/"+img)
-            detectImage(imgRead)
-            cv2.imshow("Carimg",imgRead)
-            key = cv2.waitKey()
+            imgRead=cv2.resize(imgRead,(10,10),interpolation=cv2.INTER_LINEAR)
+            gray=cv2.cvtColor(imgRead,cv2.COLOR_BGR2GRAY)
+            binary = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,cv2.THRESH_BINARY,11,2)
+            lista=convertirMat(binary)
+            matrizC.append(lista)
+    lda = LinearDiscriminantAnalysis(n_components=2)
+    lda.fit(matrizC,EtiquetasE)
+    CR=lda.transform(matrizC)
+    return matrizC
+            #contours, hierarchy = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+            #lista=ClasificarCaracter(contours)
+            #for i in range(0,len(lista)):
+             #   Dx, Dy, Dw, Dh = cv2.boundingRect(lista[i])
+              #  cv2.rectangle(imgRead, (Dx,Dy), (Dx+Dw,Dy+Dh), (0,255,0), 2)
+            #cv2.imshow("Caracterimg",imgRead)
+            #key = cv2.waitKey()
             #la ventana del imagen se cierra hasta que llega un ESC
-            if key == 27:
-                cv2.destroyAllWindows()
-def main():
-    lecturaImg("testing_ocr")
+            #if key == 27:
+             #   cv2.destroyAllWindows()
+def convertirMat(binarys):
+    lista=[]
+    for binary in binarys:
+        for i in range(len(binary)):
+            lista.append(binary[i])
+    return lista
 
+
+
+def ClasificarCaracter(contours):
+    lista=[]
+    for i in range(0,len(contours)):
+        area=cv2.contourArea(contours[i])
+        if area>20:
+            lista.append(contours[i])
+    return lista
+def main():
+    #lecturaImg("testing_ocr")
+    CargarTraining()
 
 if __name__ == "__main__":
     main()
