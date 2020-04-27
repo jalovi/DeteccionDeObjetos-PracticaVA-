@@ -1,21 +1,25 @@
 import os
 import cv2
+import argparse
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-def lecturaImg(path_name):
+
+
+def lecturaImg(path_name, click):
     for img in os.listdir(path_name):
         #Leer todas las imagenes de la carpeta test
         i = img.split('.')
         if(i[1] == 'jpg'):
             imgRead = cv2.imread(path_name+"/"+img)
-            detectImage(imgRead)
+            detectImage(imgRead, img)
             cv2.imshow("Carimg",imgRead)
-            key = cv2.waitKey()
-        #la ventana del imagen se cierra hasta que llega un ESC
-            if key == 27:
-                cv2.destroyAllWindows()
+            if click == True:
+                key = cv2.waitKey()
+                #la ventana del imagen se cierra hasta que llega un ESC
+                if key == 27:
+                    cv2.destroyAllWindows()
 
 
-def detectImage(imgRead):
+def detectImage(imgRead, img):
     # iniciamos el clasificador de coche y de la matricula
     car_cascade=cv2.CascadeClassifier('haar/coches.xml')
     mat_cascade=cv2.CascadeClassifier('haar/matriculas.xml')
@@ -37,12 +41,12 @@ def detectImage(imgRead):
                 mat_color = imgRead[My:My+Mh,Mx:Mx+Mw]
                 binary = cv2.adaptiveThreshold(mat_gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,cv2.THRESH_BINARY,11,2)
                 contours, hierarchy = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-                lista=detectorCaracter(contours)
+                lista=detectorCaracter(contours, img)
                 for i in range(0,len(lista)):
                     Dx, Dy, Dw, Dh = cv2.boundingRect(lista[i])
                     cv2.rectangle(mat_color, (Dx,Dy), (Dx+Dw,Dy+Dh), (0,255,0), 2)
 
-def detectorCaracter(contours):
+def detectorCaracter(contours, nombreImagen):
     lista=[]
     for i in range(0,len(contours)):
         area=cv2.contourArea(contours[i])
@@ -51,6 +55,7 @@ def detectorCaracter(contours):
             aspect=Dh/Dw
             if aspect > 0 and aspect<5.5 and Dy!=0:
                 lista.append(contours[i])
+                #saveImg(nombreImagen, Dx, Dy, contours[i], Dh)
     return lista
 
 def CargarTraining():
@@ -99,7 +104,35 @@ def ClasificarCaracter(contours):
         if area>20:
             lista.append(contours[i])
     return lista
+    
+def saveImg(nombre, xCentro, yCentro, matricula, longitudMatricula):
+    rute = os.getcwd()
+    if not os.path.exists('resultados'):
+        os.mkdir('resultados')
+    os.chdir('resultados')
+    archivo = open(f"{nombre}.txt", "w")
+    contenido = "Nombre_Imagen: "+nombre +", x_centro_matricula: " +str(xCentro) +", y_centro_matricula: " +str(yCentro) +", Matricula: " +str(matricula) +", longitud_Matricula: " +str(longitudMatricula)
+    archivo.write(contenido)
+    archivo.close()
+    os.chdir(rute)
+
+
 def main():
+    parser = argparse.ArgumentParser(description="testing")
+    parser.add_argument(
+        "--path",
+        default="testing_ocr",
+        help="path file to test",
+    )
+    parser.add_argument(
+        "--click",
+        default="True",#cambiar a False cuando probemos en consola
+        help="option that user check the bottom",
+    )
+
+    arg = parser.parse_args()
+    lecturaImg(arg.path, arg.click)
+
     #lecturaImg("testing_ocr")
     CargarTraining()
 
