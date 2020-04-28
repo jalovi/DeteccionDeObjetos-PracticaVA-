@@ -1,22 +1,30 @@
 import os
 import cv2
 import argparse
+import numpy as np
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-
+from sklearn.naive_bayes import GaussianNB
 
 def lecturaImg(path_name, click):
+    lda,gnb=CargarTraining()
     for img in os.listdir(path_name):
         #Leer todas las imagenes de la carpeta test
         i = img.split('.')
         if(i[1] == 'jpg'):
             imgRead = cv2.imread(path_name+"/"+img)
-            detectImage(imgRead, img)
+            mat_sample=detectImage(imgRead, img)
+            caracteres=[]
+            for i in mat_sample:
+                car=convertirMat(i)
+                caracteres.append(car)
+            cr=lda.transform(caracteres)
+            predic=gnb.predict(cr)
             cv2.imshow("Carimg",imgRead)
-            if click == True:
-                key = cv2.waitKey()
+            #if click == True:
+            key = cv2.waitKey()
                 #la ventana del imagen se cierra hasta que llega un ESC
-                if key == 27:
-                    cv2.destroyAllWindows()
+            if key == 27:
+                cv2.destroyAllWindows()
 
 
 def detectImage(imgRead, img):
@@ -25,26 +33,29 @@ def detectImage(imgRead, img):
     mat_cascade=cv2.CascadeClassifier('haar/matriculas.xml')
     gray=cv2.cvtColor(imgRead,cv2.COLOR_BGR2GRAY)
     #Lanzar el detector coche
-    #car=car_cascade.detectMultiScale(gray,1.1,7,cv2.CASCADE_SCALE_IMAGE,(30,80))
     car=car_cascade.detectMultiScale(gray)
+    mat_sample=[]
     print ("Detect{0}car".format(len(car)))
     if len(car)>0:
         for x,y,w,h in car:
             #Dibujar la posición del coche
             cv2.rectangle(imgRead,(x,y),(x+w,y+h),(0,0,255),2)
-            #Lanzar el detector de las matriculas
-            mat=mat_cascade.detectMultiScale(gray)
-            for Mx,My,Mw,Mh in mat:
-                #Dibujar la posición las matriculas
-                cv2.rectangle(imgRead,(Mx,My),(Mx+Mw,My+Mh),(255,0,0),2)
-                mat_gray=gray[My:My+Mh,Mx:Mx+Mw]
-                mat_color = imgRead[My:My+Mh,Mx:Mx+Mw]
-                binary = cv2.adaptiveThreshold(mat_gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,cv2.THRESH_BINARY,11,2)
-                contours, hierarchy = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-                lista=detectorCaracter(contours, img)
-                for i in range(0,len(lista)):
-                    Dx, Dy, Dw, Dh = cv2.boundingRect(lista[i])
-                    cv2.rectangle(mat_color, (Dx,Dy), (Dx+Dw,Dy+Dh), (0,255,0), 2)
+        #Lanzar el detector de las matriculas
+        mat=mat_cascade.detectMultiScale(gray)
+        for Mx,My,Mw,Mh in mat:
+            #Dibujar la posición las matriculas
+            cv2.rectangle(imgRead,(Mx,My),(Mx+Mw,My+Mh),(255,0,0),2)
+            mat_gray=gray[My:My+Mh,Mx:Mx+Mw]
+            mat_color = imgRead[My:My+Mh,Mx:Mx+Mw]
+            binary = cv2.adaptiveThreshold(mat_gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,cv2.THRESH_BINARY,11,2)
+            contours, hierarchy = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+            lista=detectorCaracter(contours, img)
+            for i in range(0,len(lista)):
+                Dx, Dy, Dw, Dh = cv2.boundingRect(lista[i])
+                caracter=cv2.resize(binary[Dy:Dy + Dh, Dx:Dx + Dw],(10,10),interpolation=cv2.INTER_LINEAR)
+                mat_sample.append(caracter)
+                cv2.rectangle(mat_color, (Dx,Dy), (Dx+Dw,Dy+Dh), (0,255,0), 2)
+    return mat_sample
 
 def detectorCaracter(contours, nombreImagen):
     lista=[]
@@ -53,7 +64,7 @@ def detectorCaracter(contours, nombreImagen):
         if area>50:
             Dx, Dy, Dw, Dh = cv2.boundingRect(contours[i])
             aspect=Dh/Dw
-            if aspect > 0 and aspect<5.5 and Dy!=0:
+            if aspect >= 1 and aspect<5.5 and Dy!=0:
                 lista.append(contours[i])
                 #saveImg(nombreImagen, Dx, Dy, contours[i], Dh)
     return lista
@@ -66,28 +77,25 @@ def CargarTraining():
         #Leer todas las imagenes de la carpeta trainning
         i = img.split('.')
         if(i[1] == 'jpg'):
-            caracter=i[0].split('_')
-            EtiquetasE.append(caracter[0])
+            Etiqueta=i[0].split('_')
             imgRead = cv2.imread(path_name+"/"+img)
-            imgRead=cv2.resize(imgRead,(10,10),interpolation=cv2.INTER_LINEAR)
             gray=cv2.cvtColor(imgRead,cv2.COLOR_BGR2GRAY)
             binary = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,cv2.THRESH_BINARY,11,2)
-            lista=convertirMat(binary)
-            matrizC.append(lista)
+            contours, hierarchy = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+            lista=detectorCaracter(contours, img)
+            for i in range(0,len(lista)):
+                    Dx, Dy, Dw, Dh = cv2.boundingRect(lista[0])
+                    cv2.rectangle(imgRead, (Dx,Dy), (Dx+Dw,Dy+Dh), (0,255,0), 2)
+                    caracter=cv2.resize(binary[Dy:Dy + Dh, Dx:Dx + Dw],(10,10),interpolation=cv2.INTER_LINEAR)
+                    matrizC.append(convertirMat(caracter))
+                    EtiquetasE.append(Etiqueta[0])
     lda = LinearDiscriminantAnalysis(n_components=2)
     lda.fit(matrizC,EtiquetasE)
     CR=lda.transform(matrizC)
-    return matrizC
-            #contours, hierarchy = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-            #lista=ClasificarCaracter(contours)
-            #for i in range(0,len(lista)):
-             #   Dx, Dy, Dw, Dh = cv2.boundingRect(lista[i])
-              #  cv2.rectangle(imgRead, (Dx,Dy), (Dx+Dw,Dy+Dh), (0,255,0), 2)
-            #cv2.imshow("Caracterimg",imgRead)
-            #key = cv2.waitKey()
-            #la ventana del imagen se cierra hasta que llega un ESC
-            #if key == 27:
-             #   cv2.destroyAllWindows()
+    gnb=GaussianNB()
+    gnb.fit(CR,EtiquetasE)
+    return lda,gnb
+
 def convertirMat(binarys):
     lista=[]
     for binary in binarys:
@@ -132,9 +140,8 @@ def main():
 
     arg = parser.parse_args()
     lecturaImg(arg.path, arg.click)
-
+    #CargarTraining()
     #lecturaImg("testing_ocr")
-    CargarTraining()
 
 if __name__ == "__main__":
     main()
