@@ -3,7 +3,7 @@ import cv2
 import argparse
 import numpy as np
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-
+from sklearn.naive_bayes import GaussianNB
 def lecturaImg(path_name, click):
     lda,gnb=CargarTraining()
     for img in os.listdir(path_name):
@@ -48,7 +48,7 @@ def detectImage(imgRead, img):
             mat_color = imgRead[My:My+Mh,Mx:Mx+Mw]
             binary = cv2.adaptiveThreshold(mat_gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,cv2.THRESH_BINARY,11,2)
             contours, hierarchy = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-            lista=detectorCaracter(contours, img)
+            lista=detectorMat(contours)
             for i in range(0,len(lista)):
                 Dx, Dy, Dw, Dh = cv2.boundingRect(lista[i])
                 caracter=cv2.resize(binary[Dy:Dy + Dh, Dx:Dx + Dw],(10,10),interpolation=cv2.INTER_LINEAR)
@@ -56,17 +56,17 @@ def detectImage(imgRead, img):
                 cv2.rectangle(mat_color, (Dx,Dy), (Dx+Dw,Dy+Dh), (0,255,0), 2)
     return mat_sample
 
-def detectorCaracter(contours, nombreImagen):
+def detectorMat(contours):
     lista=[]
     for i in range(0,len(contours)):
         area=cv2.contourArea(contours[i])
-        if area>40:
+        if area>30:
             Dx, Dy, Dw, Dh = cv2.boundingRect(contours[i])
             aspect=Dh/Dw
-            if aspect >= 1 and aspect<5.5 and Dy!=0:
+            if aspect >= 1 and aspect<5 and Dy!=0:
                 lista.append(contours[i])
-                #saveImg(nombreImagen, Dx, Dy, contours[i], Dh)
     return lista
+
 
 def CargarTraining():
     path_name="training_ocr"
@@ -76,12 +76,12 @@ def CargarTraining():
         #Leer todas las imagenes de la carpeta trainning
         i = img.split('.')
         if(i[1] == 'jpg'):
-            Etiqueta=caracter_to_num(i[0].split('_')[0])
+            Etiqueta=(i[0].split('_')[0])
             imgRead = cv2.imread(path_name+"/"+img)
             gray=cv2.cvtColor(imgRead,cv2.COLOR_BGR2GRAY)
             binary = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,cv2.THRESH_BINARY,11,2)
             contours, hierarchy = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-            lista=detectorCaracter(contours, img)
+            lista=detectorMat(contours)
             for i in range(0,len(lista)):
                     Dx, Dy, Dw, Dh = cv2.boundingRect(lista[0])
                     cv2.rectangle(imgRead, (Dx,Dy), (Dx+Dw,Dy+Dh), (0,255,0), 2)
@@ -89,10 +89,12 @@ def CargarTraining():
                     matrizC.append(convertirMat(caracter))
                     EtiquetasE.append(Etiqueta)
     lda = LinearDiscriminantAnalysis(n_components=2)
-    lda.fit(matrizC,EtiquetasE)
+    gnb= GaussianNB()
+    lda=lda.fit(matrizC,EtiquetasE)
     CR=lda.transform(matrizC)
-    gnb= cv2.ml.NormalBayesClassifier_create()
-    gnb.train(CR,cv2.ml.ROW_SAMPLE,EtiquetasE)
+    gnb=gnb.fit(CR,EtiquetasE)
+    predic=gnb.predict(CR)
+    print("Clasificador bayer，Total： %d Fallo : %d" % (CR.data.shape[0],(EtiquetasE != predic).sum()))
     return lda,gnb
 
 def convertirMat(binarys):
@@ -102,13 +104,7 @@ def convertirMat(binarys):
             lista.append(binary[i])
     return lista
 
-def caracter_to_num(car):
-    caracter = {"0" : 0,"1" : 1,"2" : 2,"3" : 3,"4" : 4,"5" : 5,"6" : 6,"7" : 7,"8" : 8,
-        "9" : 9,"A" : 10,"B" : 11,"C" : 12,"D" : 13,"E" : 14,"F" : 15,"G" : 16,"H" : 17,"I" : 18,"J" : 19,
-        "K" : 20,"L" : 21,"M" : 22,"N" : 23,"O" : 24,"P" : 25,"Q" : 26,"R" : 27,"S" : 28,"T" : 29,"U" : 30,
-        "V" : 31,"W" : 32,"X" : 33,"Y" : 34,"Z" : 35,"ESP":36}
 
-    return caracter.get(car, None)
 
     
 def saveImg(nombre, xCentro, yCentro, matricula, longitudMatricula):
