@@ -13,11 +13,12 @@ def lecturaImg(path_name, click):
             imgRead = cv2.imread(path_name+"/"+img)
             mat_sample=detectImage(imgRead, img)
             caracteres=[]
+            #Convertir en un matriz de 1*100
             for i in mat_sample:
-                car=convertirMat(i)
-                caracteres.append(car)
-            cr=lda.transform(caracteres)
-            predic=gnb.predict(cr)
+                caracteres.append(i.reshape(100))
+            caracteres= np.array(caracteres).astype('float32')
+            #cr_test=lda.transform(caracteres)
+            predic=lda.predict(caracteres)
             cv2.imshow("Carimg",imgRead)
             #if click == True:
             key = cv2.waitKey()
@@ -46,17 +47,22 @@ def detectImage(imgRead, img):
             cv2.rectangle(imgRead,(Mx,My),(Mx+Mw,My+Mh),(255,0,0),2)
             mat_gray=gray[My:My+Mh,Mx:Mx+Mw]
             mat_color = imgRead[My:My+Mh,Mx:Mx+Mw]
+            #Unbralizar la zona de matricula
             binary = cv2.adaptiveThreshold(mat_gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,cv2.THRESH_BINARY,11,2)
             contours, hierarchy = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+            #identificamos las letras correctas
             lista=detectorMat(contours)
             for i in range(0,len(lista)):
                 Dx, Dy, Dw, Dh = cv2.boundingRect(lista[i])
+                #cambiamos el tamaño de la zona detectado
                 caracter=cv2.resize(binary[Dy:Dy + Dh, Dx:Dx + Dw],(10,10),interpolation=cv2.INTER_LINEAR)
+                #guardamos el array de pixeles en una matriz
                 mat_sample.append(caracter)
                 cv2.rectangle(mat_color, (Dx,Dy), (Dx+Dw,Dy+Dh), (0,255,0), 2)
     return mat_sample
 
 def detectorMat(contours):
+    #Condicion para sacar la zona correcta de la matricula
     lista=[]
     for i in range(0,len(contours)):
         area=cv2.contourArea(contours[i])
@@ -76,35 +82,49 @@ def CargarTraining():
         #Leer todas las imagenes de la carpeta trainning
         i = img.split('.')
         if(i[1] == 'jpg'):
+            #Coger el nombre del fichero para sacar la primera letra como la etiqueta
             Etiqueta=(i[0].split('_')[0])
             imgRead = cv2.imread(path_name+"/"+img)
             gray=cv2.cvtColor(imgRead,cv2.COLOR_BGR2GRAY)
+            #Umbralizar los caracteres
             binary = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,cv2.THRESH_BINARY,11,2)
             contours, hierarchy = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
             lista=detectorMat(contours)
             for i in range(0,len(lista)):
                     Dx, Dy, Dw, Dh = cv2.boundingRect(lista[0])
                     cv2.rectangle(imgRead, (Dx,Dy), (Dx+Dw,Dy+Dh), (0,255,0), 2)
+                    #Cambiar el tamaño de la zona detectada del caracter
                     caracter=cv2.resize(binary[Dy:Dy + Dh, Dx:Dx + Dw],(10,10),interpolation=cv2.INTER_LINEAR)
-                    matrizC.append(convertirMat(caracter))
-                    EtiquetasE.append(Etiqueta)
+                    #guardar los pixeles en un matriz y las etiquetas en otras
+                    matrizC.append(caracter.reshape(100))
+                    EtiquetasE.append(charToNumber(Etiqueta))
+    #Entrenar los clasificadores
     lda = LinearDiscriminantAnalysis(n_components=2)
     gnb= GaussianNB()
-    lda=lda.fit(matrizC,EtiquetasE)
-    CR=lda.transform(matrizC)
-    gnb=gnb.fit(CR,EtiquetasE)
-    predic=gnb.predict(CR)
-    print("Clasificador bayer，Total： %d Fallo : %d" % (CR.data.shape[0],(EtiquetasE != predic).sum()))
+    matrix_data= np.array(matrizC).astype('float32')
+    matrix_resp= np.array(EtiquetasE).astype('float32')
+    lda=lda.fit(matrix_data,matrix_resp)
+    #predic=lda.predict(matrix_data)
+    #print("Clasificador lda，Total： %d Fallo : %d" % (matrix_data.data.shape[0],(EtiquetasE != predic).sum()))
+    CR=lda.transform(matrix_data)
+    gnb=gnb.fit(CR,matrix_resp)
+    #Comparar con la matriz de dimesion reducida 
+    #predic=gnb.predict(CR)
+    #print("Clasificador bayer，Total： %d Fallo : %d" % (CR.data.shape[0],(EtiquetasE != predic).sum()))
     return lda,gnb
 
 def convertirMat(binarys):
-    lista=[]
+    lista=np.empty((1,100))
     for binary in binarys:
         for i in range(len(binary)):
             lista.append(binary[i])
     return lista
 
-
+def charToNumber(num):
+    dic={ "A":10,"B":11,"C":12,"D":13,"E":14,"F":15,"G":16,"H":17,"I":18,"J":19,"K":20
+        ,"L":21,"M":22,"N":23,"O":24,"P":25,"Q":26,"R":27,"S":28,"T":29,"U":30,"V":31,"W":32,"X":33
+        ,"Y":34,"Z":35,"0":0,"1":1,"2":2,"3":3,"4":4,"5":5,"6":6,"7":7,"8":8,"9":9,"ESP":11}
+    return dic.get(num)
 
     
 def saveImg(nombre, xCentro, yCentro, matricula, longitudMatricula):
