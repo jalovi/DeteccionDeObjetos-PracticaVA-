@@ -4,30 +4,25 @@ import argparse
 import numpy as np
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.naive_bayes import GaussianNB
-def lecturaImg(path_name, click):
-    lda,gnb=CargarTraining()
+
+def lecturaImg(path_name,click,lda,gnb):
     for img in os.listdir(path_name):
         #Leer todas las imagenes de la carpeta test
         i = img.split('.')
         if(i[1] == 'jpg'):
             imgRead = cv2.imread(path_name+"/"+img)
-            mat_sample=detectImage(imgRead, img)
-            caracteres=[]
-            #Convertir en un matriz de 1*100
-            for i in mat_sample:
-                caracteres.append(i.reshape(100))
-            caracteres= np.array(caracteres).astype('float32')
-            #cr_test=lda.transform(caracteres)
-            predic=lda.predict(caracteres)
+            detectImage(imgRead,lda,gnb)
             cv2.imshow("Carimg",imgRead)
             #if click == True:
             key = cv2.waitKey()
-                #la ventana del imagen se cierra hasta que llega un ESC
+            #la ventana del imagen se cierra hasta que llega un ESC
             if key == 27:
                 cv2.destroyAllWindows()
 
 
-def detectImage(imgRead, img):
+
+
+def detectImage(imgRead,lda,gnb):
     # iniciamos el clasificador de coche y de la matricula
     car_cascade=cv2.CascadeClassifier('haar/coches.xml')
     mat_cascade=cv2.CascadeClassifier('haar/matriculas.xml')
@@ -35,7 +30,6 @@ def detectImage(imgRead, img):
     #Lanzar el detector coche
     car=car_cascade.detectMultiScale(gray)
     mat_sample=[]
-    print ("Detect{0}car".format(len(car)))
     if len(car)>0:
         for x,y,w,h in car:
             #Dibujar la posición del coche
@@ -51,17 +45,24 @@ def detectImage(imgRead, img):
             binary = cv2.adaptiveThreshold(mat_gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,cv2.THRESH_BINARY,11,2)
             contours, hierarchy = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
             #identificamos las letras correctas
-            lista=detectorMat(contours)
+            lista=detectorMat(contours,Mh,Mw)
+            lista.sort(key=takeFirst)
             for i in range(0,len(lista)):
-                Dx, Dy, Dw, Dh = cv2.boundingRect(lista[i])
+                Dx, Dy, Dw, Dh = lista[i]
                 #cambiamos el tamaño de la zona detectado
                 caracter=cv2.resize(binary[Dy:Dy + Dh, Dx:Dx + Dw],(10,10),interpolation=cv2.INTER_LINEAR)
                 #guardamos el array de pixeles en una matriz
                 mat_sample.append(caracter)
                 cv2.rectangle(mat_color, (Dx,Dy), (Dx+Dw,Dy+Dh), (0,255,0), 2)
-    return mat_sample
+        if(len(mat_sample)>0):
+            caracteres=convertirMat(mat_sample)
+            caracteres= np.array(caracteres).astype('float32')
+            cr_test=lda.transform(caracteres)
+            predic=gnb.predict(cr_test)
+            predic=NumberTochar(predic)
+            print("Matricula= ",predic)
 
-def detectorMat(contours):
+def detectorMat(contours,MH,MW):
     #Condicion para sacar la zona correcta de la matricula
     lista=[]
     for i in range(0,len(contours)):
@@ -69,10 +70,30 @@ def detectorMat(contours):
         if area>30:
             Dx, Dy, Dw, Dh = cv2.boundingRect(contours[i])
             aspect=Dh/Dw
-            if aspect >= 1 and aspect<5 and Dy!=0:
-                lista.append(contours[i])
+            if aspect >= 1 and aspect<3 and Dy>0:
+                    if Dw>=(MW/9) or Dh>=(MH/2):
+                        lista.append((Dx, Dy, Dw, Dh))
     return lista
 
+
+
+def detectorCar(contours):
+    #Condicion para sacar la zona correcta de la matricula
+    lista=[]
+    for i in range(0,len(contours)):
+        area=cv2.contourArea(contours[i])
+        if area>50:
+            Dx, Dy, Dw, Dh = cv2.boundingRect(contours[i])
+            aspect=Dh/Dw
+            if aspect >= 1 and aspect<3 and Dy>0:
+                if Dw>=(10) or Dh>=(10):
+                    lista.append((Dx, Dy, Dw, Dh))
+    return lista
+
+
+
+def takeFirst(elem):
+    return elem[0]
 
 def CargarTraining():
     path_name="training_ocr"
@@ -89,9 +110,9 @@ def CargarTraining():
             #Umbralizar los caracteres
             binary = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,cv2.THRESH_BINARY,11,2)
             contours, hierarchy = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-            lista=detectorMat(contours)
+            lista=detectorCar(contours)
             for i in range(0,len(lista)):
-                    Dx, Dy, Dw, Dh = cv2.boundingRect(lista[0])
+                    Dx, Dy, Dw, Dh = lista[i]
                     cv2.rectangle(imgRead, (Dx,Dy), (Dx+Dw,Dy+Dh), (0,255,0), 2)
                     #Cambiar el tamaño de la zona detectada del caracter
                     caracter=cv2.resize(binary[Dy:Dy + Dh, Dx:Dx + Dw],(10,10),interpolation=cv2.INTER_LINEAR)
@@ -99,31 +120,35 @@ def CargarTraining():
                     matrizC.append(caracter.reshape(100))
                     EtiquetasE.append(charToNumber(Etiqueta))
     #Entrenar los clasificadores
-    lda = LinearDiscriminantAnalysis(n_components=2)
+    lda = LinearDiscriminantAnalysis(n_components=None)
     gnb= GaussianNB()
     matrix_data= np.array(matrizC).astype('float32')
     matrix_resp= np.array(EtiquetasE).astype('float32')
     lda=lda.fit(matrix_data,matrix_resp)
-    #predic=lda.predict(matrix_data)
-    #print("Clasificador lda，Total： %d Fallo : %d" % (matrix_data.data.shape[0],(EtiquetasE != predic).sum()))
     CR=lda.transform(matrix_data)
     gnb=gnb.fit(CR,matrix_resp)
-    #Comparar con la matriz de dimesion reducida 
-    #predic=gnb.predict(CR)
-    #print("Clasificador bayer，Total： %d Fallo : %d" % (CR.data.shape[0],(EtiquetasE != predic).sum()))
     return lda,gnb
 
-def convertirMat(binarys):
-    lista=np.empty((1,100))
-    for binary in binarys:
-        for i in range(len(binary)):
-            lista.append(binary[i])
-    return lista
+def convertirMat(mat_sample):
+    caracteres=[]
+    #Convertir en un matriz de 1*100
+    for i in mat_sample:
+        caracteres.append(i.reshape(100))
+    return caracteres
+
+def NumberTochar(lista):
+    Caracteres=[]
+    dic={ 10:"A",11:"B",12:"C",13:"D",14:"E",15:"F",16:"G",17:"H",18:"I",19:"J",20:"K",
+          21:"L",22:"M",23:"N",24:"O",25:"P",26:"Q",27:"R",28:"S",29:"T",30:"U",31:"V",32:"W"
+        ,33:"X",34:"Y",35:"Z",0:"0",1:"1",2:"2",3:"3",4:"4",5:"5",6:"6",7:"7",8:"8",9:"9",36:"ESP"}
+    for i in lista:
+        Caracteres.append(dic.get(i))
+    return Caracteres
 
 def charToNumber(num):
     dic={ "A":10,"B":11,"C":12,"D":13,"E":14,"F":15,"G":16,"H":17,"I":18,"J":19,"K":20
         ,"L":21,"M":22,"N":23,"O":24,"P":25,"Q":26,"R":27,"S":28,"T":29,"U":30,"V":31,"W":32,"X":33
-        ,"Y":34,"Z":35,"0":0,"1":1,"2":2,"3":3,"4":4,"5":5,"6":6,"7":7,"8":8,"9":9,"ESP":11}
+        ,"Y":34,"Z":35,"0":0,"1":1,"2":2,"3":3,"4":4,"5":5,"6":6,"7":7,"8":8,"9":9,"ESP":36}
     return dic.get(num)
 
     
@@ -142,20 +167,19 @@ def saveImg(nombre, xCentro, yCentro, matricula, longitudMatricula):
 def main():
     parser = argparse.ArgumentParser(description="testing")
     parser.add_argument(
-        "--path",
-        default="testing_ocr",
-        help="path file to test",
+    "--path",
+    default="testing_full_system",
+    help="path file to test",
     )
     parser.add_argument(
-        "--click",
-        default="True",#cambiar a False cuando probemos en consola
-        help="option that user check the bottom",
+    "--click",
+    default="True",  # cambiar a False cuando probemos en consola
+    help="option that user check the bottom",
     )
-
+    lda,gnb=CargarTraining()
     arg = parser.parse_args()
-    lecturaImg(arg.path, arg.click)
-    #CargarTraining()
-    #lecturaImg("testing_ocr")
+    lecturaImg(arg.path, arg.click,lda,gnb)
+
 
 if __name__ == "__main__":
     main()
