@@ -4,6 +4,8 @@ import argparse
 import numpy as np
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.naive_bayes import GaussianNB
+import matplotlib.pyplot as plt
+from sklearn import linear_model
 
 def lecturaImg(path_name,click,lda,gnb):
     for img in os.listdir(path_name):
@@ -42,47 +44,56 @@ def detectImage(imgRead,lda,gnb):
             mat_gray=gray[My:My+Mh,Mx:Mx+Mw]
             mat_color = imgRead[My:My+Mh,Mx:Mx+Mw]
             #Unbralizar la zona de matricula
-            binary = cv2.adaptiveThreshold(mat_gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,cv2.THRESH_BINARY,11,2)
-            contours, hierarchy = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-            #identificamos las letras correctas
-            lista=detectorMat(contours,Mh,Mw)
-            lista.sort(key=takeFirst)
-            for i in range(0,len(lista)):
-                Dx, Dy, Dw, Dh = lista[i]
-                #cambiamos el tamaño de la zona detectado
-                caracter=cv2.resize(binary[Dy:Dy + Dh, Dx:Dx + Dw],(10,10),interpolation=cv2.INTER_LINEAR)
-                #guardamos el array de pixeles en una matriz
-                mat_sample.append(caracter)
-                cv2.rectangle(mat_color, (Dx,Dy), (Dx+Dw,Dy+Dh), (0,255,0), 2)
+        binary = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,cv2.THRESH_BINARY,11,2)
+        contours, hierarchy = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+        #identificamos las letras correctas
+        if(len(mat))>0:
+            lista=detectorMat(contours,Mx,My,Mh,Mw)
+        else:lista=detectorCar(contours)
+
+        lista.sort(key=takeFirst)
+        for i in range(0,len(lista)):
+            Dx, Dy, Dw, Dh = lista[i]
+            #cambiamos el tamaño de la zona detectado
+            caracter=cv2.resize(binary[Dy:Dy + Dh, Dx:Dx + Dw],(10,10),interpolation=cv2.INTER_LINEAR)
+            #guardamos el array de pixeles en una matriz
+            mat_sample.append(caracter)
+            cv2.rectangle(imgRead, (Dx,Dy), (Dx+Dw,Dy+Dh), (0,255,0), 2)
         if(len(mat_sample)>0):
             caracteres=convertirMat(mat_sample)
             caracteres= np.array(caracteres).astype('float32')
             cr_test=lda.transform(caracteres)
             predic=gnb.predict(cr_test)
             predic=NumberTochar(predic)
+            #dibujarCaracter(predic,lista,mat_color)
             print("Matricula= ",predic)
 
-def detectorMat(contours,MH,MW):
+def detectorMat(contours,MX,MY,MH,MW):
     #Condicion para sacar la zona correcta de la matricula
     lista=[]
+
     for i in range(0,len(contours)):
         area=cv2.contourArea(contours[i])
         if area>30:
             Dx, Dy, Dw, Dh = cv2.boundingRect(contours[i])
-            aspect=Dh/Dw
-            if aspect >= 1 and aspect<3 and Dy>0:
+            if Dx >MX and Dy>MY and Dx<(MX+MW) and Dy<(MY+MH):
+                aspect=Dh/Dw
+                if aspect >= 1 and aspect<3 and Dy>0:
                     if Dw>=(MW/9) or Dh>=(MH/2):
                         lista.append((Dx, Dy, Dw, Dh))
     return lista
 
-
+def dibujarCaracter(predict,posicion,mat_color):
+    for i in range(0,len(posicion)):
+        Dx, Dy, Dw, Dh = posicion[i]
+        cv2.putText(mat_color, predict[i], (int(Dx+Dw),(Dy+Dh)), cv2.FONT_HERSHEY_PLAIN, 2, (255,255,0), 2)
 
 def detectorCar(contours):
     #Condicion para sacar la zona correcta de la matricula
     lista=[]
     for i in range(0,len(contours)):
         area=cv2.contourArea(contours[i])
-        if area>50:
+        if area>30:
             Dx, Dy, Dw, Dh = cv2.boundingRect(contours[i])
             aspect=Dh/Dw
             if aspect >= 1 and aspect<3 and Dy>0:
@@ -140,7 +151,7 @@ def NumberTochar(lista):
     Caracteres=[]
     dic={ 10:"A",11:"B",12:"C",13:"D",14:"E",15:"F",16:"G",17:"H",18:"I",19:"J",20:"K",
           21:"L",22:"M",23:"N",24:"O",25:"P",26:"Q",27:"R",28:"S",29:"T",30:"U",31:"V",32:"W"
-        ,33:"X",34:"Y",35:"Z",0:"0",1:"1",2:"2",3:"3",4:"4",5:"5",6:"6",7:"7",8:"8",9:"9",36:"ESP"}
+        ,33:"X",34:"Y",35:"Z",0:"0",1:"1",2:"2",3:"3",4:"4",5:"5",6:"6",7:"7",8:"8",9:"9",36:"E"}
     for i in lista:
         Caracteres.append(dic.get(i))
     return Caracteres
