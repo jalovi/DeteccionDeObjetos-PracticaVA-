@@ -58,7 +58,7 @@ def detectImage(imgRead, lda, gnb, visualizar, img):
         mat = mat_cascade.detectMultiScale(gray)
 
         if len(mat)>0:
-            equ = cv2.bilateralFilter(equ,3, 18, 4)
+            equ = cv2.bilateralFilter(equ,5, 51, 51)
             plt.imshow(equ), plt.show()
 
         imgCopy = imgRead.copy()
@@ -173,7 +173,7 @@ def encontrarMatricula(lista, imgRead, equ, visualizar):
     #plt.imshow(otsu), plt.show()
 
     bin = cv2.adaptiveThreshold(otsu, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-    plt.imshow(bin), plt.show()
+    #plt.imshow(bin), plt.show()
 
     cnts, _ = cv2.findContours(bin, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     cnts = sorted(cnts, key=cv2.contourArea, reverse=True)[:50]
@@ -185,7 +185,7 @@ def encontrarMatricula(lista, imgRead, equ, visualizar):
         #print(area)
         if area > 6500 and area < 10000:
             cv2.drawContours(img, [approx], 0, (0, 255, 0), 3)
-            plt.imshow(img), plt.show()
+            #plt.imshow(img), plt.show()
             aspect_ratio = float(w) / h
             if aspect_ratio > 1 and aspect_ratio < 4:
                 if visualizar:
@@ -213,7 +213,7 @@ def detectarMatDificil(img, lista):
         # plt.imshow(equ), plt.show()
 
         binary = cv2.adaptiveThreshold(equ, 255.0, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 19, 9)
-        plt.imshow(binary), plt.show()
+        #plt.imshow(binary), plt.show()
 
         contours, hierarchy = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
         contours = sorted(contours, key=cv2.contourArea, reverse=True)[:50]
@@ -229,7 +229,7 @@ def detectarMatDificil(img, lista):
                     if h > 30 and h < 50:
                         cv2.rectangle(imagen, (Dx+x, Dy+y), (Dx+x + w, Dy+y + h), (0, 0, 255), 1)
                         listaMat.append((Dx+x,Dy+y,w,h))
-                        plt.imshow(imagen), plt.show()
+                        #plt.imshow(imagen), plt.show()
 
     return listaMat
 
