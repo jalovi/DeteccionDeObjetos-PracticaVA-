@@ -110,14 +110,17 @@ def detectImage(imgRead, lda, gnb, visualizar, img):
             matriculaTexto = escribirCaracteres(lista, imgRead, binary, lda, gnb, visualizar)
 
     else:
-        listaNueva = []
-        listaNueva = encontrarMatricula(listaNueva, imgRead, equ)
-        centro, centroX, centroY = centroImagen(imgRead,listaNueva)
-        #listaNueva = detectarMatDificil(imgRead, listaNueva)
-        if(len(listaNueva)>0):
-            matriculaTexto = escribirCaracteres(listaNueva, imgRead, equ, lda, gnb, visualizar)
+        lista = []
+        lista = encontrarMatricula(lista, imgRead, equ, visualizar)
+        centro, centroX, centroY = centroImagen(imgRead,lista)
+        lista = detectarMatDificil(imgRead, lista)
+        if(len(lista)>0):
+            matriculaTexto = escribirCaracteres(lista, imgRead, equ, lda, gnb, visualizar)
     if(len(lista)>0):
         saveImg(img, centroX, centroY, matriculaTexto,len(matriculaTexto))
+    else:
+        saveImg(img, centroX, centroY, matriculaTexto, 0)
+
 
 def escribirCaracteres(lista, imgRead, binary, lda, gnb, visualizar):
     mat_sample = []
@@ -255,12 +258,19 @@ def dibujarCaracter(predict, posicion, mat_color):
         cv2.putText(mat_color, predict[i], (int(Dx), int(Dy)+30), cv2.FONT_HERSHEY_PLAIN, 1, (255, 255, 0), 2)
 
 def centroImagen(img, lista):
-    x,y,w,h = lista[0]
-    centrox = x + (((x + w) - x) / 2)
-    centroy = y + (((y + h) - y) / 2)
-    centro = img[y:y + h, x:x + y]
+    if len(lista)>0:
+        x,y,w,h = lista[0]
+        centrox = x + (((x + w) - x) / 2)
+        centroy = y + (((y + h) - y) / 2)
+        centro = img[y:y + h, x:x + y]
 
-    cv2.circle(img, (int(centrox), int(centroy)), 5, (0, 0, 255), -1)
+        cv2.circle(img, (int(centrox), int(centroy)), 5, (0, 0, 255), -1)
+    else:
+        plt.imshow(img), plt.show()
+        centrox = img.shape[0] / 2
+        centroy = img.shape[1] / 2
+        centro = (centroy, centrox)
+        cv2.circle(img, (int(centrox), int(centroy)), 5, (0, 0, 255), -1)
 
     return centro, centrox, centroy
 
@@ -390,7 +400,7 @@ def main():
     parser = argparse.ArgumentParser(description="testing")
     parser.add_argument(
         "--path",
-        default="testing_full_system", #testing_full_system
+        default="testing", #testing_full_system
         help="path file to test",
     )
     parser.add_argument(
