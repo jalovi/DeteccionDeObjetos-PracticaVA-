@@ -59,11 +59,11 @@ def detectImage(imgRead, lda, gnb, visualizar, img):
 
         if len(mat)>0:
             equ = cv2.bilateralFilter(equ,5, 51, 51)
-            plt.imshow(equ), plt.show()
+            #plt.imshow(equ), plt.show()
 
         imgCopy = imgRead.copy()
 
-        binary = cv2.adaptiveThreshold(equ, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 13,2)
+        binary = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 11,2)
         contours, _ = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
 
         #plt.imshow(binary), plt.show()
@@ -106,17 +106,18 @@ def detectImage(imgRead, lda, gnb, visualizar, img):
                 lista = encontrarMatricula(lista, imgRead, equ, visualizar)
                 centro, centroX, centroY = centroImagen(imgRead, lista)
                 lista = detectarMatDificil(imgRead, lista)
-
-        matriculaTexto = escribirCaracteres(lista, imgRead, binary, lda, gnb, visualizar)
+        if(len(lista)>0):
+            matriculaTexto = escribirCaracteres(lista, imgRead, binary, lda, gnb, visualizar)
 
     else:
         listaNueva = []
         listaNueva = encontrarMatricula(listaNueva, imgRead, equ)
         centro, centroX, centroY = centroImagen(imgRead,listaNueva)
         #listaNueva = detectarMatDificil(imgRead, listaNueva)
-        matriculaTexto = escribirCaracteres(listaNueva, imgRead, equ, lda, gnb, visualizar)
-
-    saveImg(img, centroX, centroY, matriculaTexto,len(matriculaTexto))
+        if(len(listaNueva)>0):
+            matriculaTexto = escribirCaracteres(listaNueva, imgRead, equ, lda, gnb, visualizar)
+    if(len(lista)>0):
+        saveImg(img, centroX, centroY, matriculaTexto,len(matriculaTexto))
 
 def escribirCaracteres(lista, imgRead, binary, lda, gnb, visualizar):
     mat_sample = []
@@ -235,15 +236,15 @@ def detectarMatDificil(img, lista):
 
 
 def detectorMat(contours, MX, MY, MH, MW, lista):
-    # Condicion para sacar la zona correcta de la matricula
-    for i in range(0, len(contours)):
-        area = cv2.contourArea(contours[i])
-        if area > 20:
+    #Condicion para sacar la zona correcta de la matricula
+    for i in range(0,len(contours)):
+        area=cv2.contourArea(contours[i])
+        if area>20:
             Dx, Dy, Dw, Dh = cv2.boundingRect(contours[i])
-            if Dx > MX and Dy > MY and Dx < (MX + MW) and Dy < (MY + MH):
-                aspect = Dh / Dw
-                if aspect >= 1 and aspect < 3.5 and Dy > 0:
-                    if Dw >= (MW / 9) or Dh >= (MH / 2) and len(lista) < 8:
+            if Dx >MX and Dy>MY and Dx<(MX+MW) and Dy<(MY+MH):
+                aspect=Dh/Dw
+                if aspect >= 1 and aspect<3 and Dy>0:
+                    if Dw>=(MW/9) or Dh>=(MH/2) and len(lista)<8:
                         lista.append((Dx, Dy, Dw, Dh))
     return lista
 
