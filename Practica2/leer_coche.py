@@ -5,8 +5,7 @@ import numpy as np
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.naive_bayes import GaussianNB
 import matplotlib.pyplot as plt
-from sklearn import linear_model
-
+from sklearn.linear_model import RANSACRegressor
 def lecturaImg(path_name,click,lda,gnb):
     for img in os.listdir(path_name):
         #Leer todas las imagenes de la carpeta test
@@ -33,24 +32,27 @@ def detectImage(imgRead,lda,gnb):
     car=car_cascade.detectMultiScale(gray)
     mat_sample=[]
     if len(car)>0:
-        for x,y,w,h in car:
+        for Cx,Cy,Cw,Ch in car:
             #Dibujar la posición del coche
-            cv2.rectangle(imgRead,(x,y),(x+w,y+h),(0,0,255),2)
+            cv2.rectangle(imgRead,(Cx,Cy),(Cx+Cw,Cy+Ch),(0,0,255),2)
         #Lanzar el detector de las matriculas
         mat=mat_cascade.detectMultiScale(gray)
-        for Mx,My,Mw,Mh in mat:
-            #Dibujar la posición las matriculas
-            cv2.rectangle(imgRead,(Mx,My),(Mx+Mw,My+Mh),(255,0,0),2)
-            mat_gray=gray[My:My+Mh,Mx:Mx+Mw]
-            mat_color = imgRead[My:My+Mh,Mx:Mx+Mw]
-            #Unbralizar la zona de matricula
-        binary = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,cv2.THRESH_BINARY,11,2)
+        #Unbralizar la zona de matricula
+        binary = cv2.adaptiveThreshold(gray,255, cv2.ADAPTIVE_THRESH_MEAN_C,cv2.THRESH_BINARY,11,2)
         contours, hierarchy = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
         #identificamos las letras correctas
+        lista=[]
         if(len(mat))>0:
-            lista=detectorMat(contours,Mx,My,Mh,Mw)
-        else:lista=detectorCar(contours)
-
+            for Mx,My,Mw,Mh in mat:
+                cv2.rectangle(imgRead,(Mx,My),(Mx+Mw,My+Mh),(255,0,0),2)
+                lista=detectorMat(contours,Mx,My,Mh,Mw,lista)
+        else:
+            datax=[]
+            datay=[]
+            for Cx,Cy,Cw,Ch in car:
+                datax,datay=detectorCar(contours,Cx,Cy,Cw,Ch,lista,datax,datay)
+            if len(lista)>7:
+                lista=Ransac(datax,datay,lista)
         lista.sort(key=takeFirst)
         for i in range(0,len(lista)):
             Dx, Dy, Dw, Dh = lista[i]
@@ -68,18 +70,29 @@ def detectImage(imgRead,lda,gnb):
             #dibujarCaracter(predic,lista,mat_color)
             print("Matricula= ",predic)
 
-def detectorMat(contours,MX,MY,MH,MW):
-    #Condicion para sacar la zona correcta de la matricula
-    lista=[]
+def Ransac(datax,datay,lista):
+    detectado=[]
+    x=np.array(datax).reshape((len(datax),1))
+    y=np.array(datay)
+    ransac = RANSACRegressor()
 
+    ransac.fit(x,y)
+    inlier_mask = ransac.inlier_mask_
+    for i in range(0,len(lista)):
+        if inlier_mask[i]:
+            detectado.append(lista[i])
+    return detectado
+
+def detectorMat(contours,MX,MY,MH,MW,lista):
+    #Condicion para sacar la zona correcta de la matricula
     for i in range(0,len(contours)):
         area=cv2.contourArea(contours[i])
-        if area>30:
+        if area>20:
             Dx, Dy, Dw, Dh = cv2.boundingRect(contours[i])
             if Dx >MX and Dy>MY and Dx<(MX+MW) and Dy<(MY+MH):
                 aspect=Dh/Dw
                 if aspect >= 1 and aspect<3 and Dy>0:
-                    if Dw>=(MW/9) or Dh>=(MH/2):
+                    if Dw>=(MW/9) or Dh>=(MH/2) and len(lista)<8:
                         lista.append((Dx, Dy, Dw, Dh))
     return lista
 
@@ -88,12 +101,27 @@ def dibujarCaracter(predict,posicion,mat_color):
         Dx, Dy, Dw, Dh = posicion[i]
         cv2.putText(mat_color, predict[i], (int(Dx+Dw),(Dy+Dh)), cv2.FONT_HERSHEY_PLAIN, 2, (255,255,0), 2)
 
-def detectorCar(contours):
+def detectorCar(contours,Cx,Cy,Cw,Ch,lista,datax,datay):
     #Condicion para sacar la zona correcta de la matricula
-    lista=[]
     for i in range(0,len(contours)):
         area=cv2.contourArea(contours[i])
-        if area>30:
+        if area>30 and area<300:
+            Dx, Dy, Dw, Dh = cv2.boundingRect(contours[i])
+            if Dx >Cx and Dy>Cy and Dx<(Cx+Cw) and Dy<(Cy+Ch):
+                aspect=Dh/Dw
+                if aspect >= 1 and aspect<3 and Dy>0:
+                    if Dw>=(10) or Dh>=(10):
+                        lista.append((Dx, Dy, Dw, Dh))
+                        datax.append(len(lista))
+                        datay.append(((Dx+Dw)/2,(Dy+Dh)/2))
+    return datax,datay
+
+def detectorCaracter(contours):
+    lista=[]
+    #Condicion para sacar la zona correcta de la matricula
+    for i in range(0,len(contours)):
+        area=cv2.contourArea(contours[i])
+        if area>50:
             Dx, Dy, Dw, Dh = cv2.boundingRect(contours[i])
             aspect=Dh/Dw
             if aspect >= 1 and aspect<3 and Dy>0:
@@ -121,7 +149,7 @@ def CargarTraining():
             #Umbralizar los caracteres
             binary = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,cv2.THRESH_BINARY,11,2)
             contours, hierarchy = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-            lista=detectorCar(contours)
+            lista=detectorCaracter(contours)
             for i in range(0,len(lista)):
                     Dx, Dy, Dw, Dh = lista[i]
                     cv2.rectangle(imgRead, (Dx,Dy), (Dx+Dw,Dy+Dh), (0,255,0), 2)
